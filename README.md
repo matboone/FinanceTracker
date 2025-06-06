@@ -1,3 +1,4 @@
+![License](https://img.shields.io/github/license/matboone/FinanceTracker)
 # FinanceTracker
 
 **FinanceTracker** is a simple SwiftUI-based expense tracker that lets you:
