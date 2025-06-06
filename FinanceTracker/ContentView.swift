@@ -1,66 +1,67 @@
-//
-//  ContentView.swift
-//  FinanceTracker
-//
-//  Created by Matthew Boone on 6/5/25.
-//
-
 import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @Environment(\.modelContext) private var context
+    @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
+    @State private var showingAdd = false
+    @State private var selectedTab = 0   // 0 = list, 1 = chart
 
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+        TabView(selection: $selectedTab) {
+            // ─── Tab #1: Expense List ───
+            NavigationStack {
+                List(expenses) { exp in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(exp.title).fontWeight(.semibold)
+                            Text(exp.date, format: .dateTime.month().day().year())
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(exp.amount,
+                             format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
                     }
                 }
-                .onDelete(perform: deleteItems)
-            }
-#if os(macOS)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-#endif
-            .toolbar {
-#if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-#endif
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                .navigationTitle("Expenses")
+                .toolbar {
+                    Button { showingAdd = true } label: {
+                        Image(systemName: "plus")
                     }
                 }
+                .sheet(isPresented: $showingAdd) {
+                    AddExpenseView()
+                }
+                .onAppear { insertSampleIfNeeded() }
             }
-        } detail: {
-            Text("Select an item")
+            .tabItem {
+                Label("List", systemImage: "list.bullet")
+            }
+            .tag(0)
+
+            // ─── Tab #2: Chart ───
+            NavigationStack {
+                ExpenseChartView()
+            }
+            .tabItem {
+                Label("Chart", systemImage: "chart.bar.fill")
+            }
+            .tag(1)
         }
     }
 
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
-            }
-        }
+    private func insertSampleIfNeeded() {
+        guard expenses.isEmpty else { return }
+        let demo = Expense(title: "Coffee", amount: 3.75)
+        context.insert(demo)
+        try? context.save()
     }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        .modelContainer(
+            for: Expense.self,
+            inMemory: true
+        )
 }
